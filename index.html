@@ -16,10 +16,11 @@
     <main class="content">
         <div class="top-nav">
             <input type="text" id="search" placeholder="Search modules by name or tag...">
-            <a href="admin.html" style="position:fixed; bottom:20px; right:20px; background:#00d2ff; color:#000; padding:8px 16px; border-radius:8px; font-weight:bold; text-decoration:none; font-size:13px;">Admin</a>
         </div>
         <div class="grid" id="gameGrid"></div>
     </main>
+
+    <a href="admin.html" style="position:fixed; bottom:20px; right:20px; background:#00d2ff; color:#000; padding:8px 16px; border-radius:8px; font-weight:bold; text-decoration:none; font-size:13px;">Admin</a>
 
     <script>
         const firebaseConfig = {
@@ -34,16 +35,14 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Live listener — re-renders whenever Firestore changes
-        db.collection("games").onSnapshot(snap => {
-            const data = snap.docs.map(d => d.data());
+        db.collection("games").onSnapshot(function(snap) {
+            var data = snap.docs.map(function(d) { return d.data(); });
             render(data);
         });
 
         function render(games) {
-            const grid = document.getElementById('gameGrid');
-            const list = document.getElementById('fullList');
-
+            var grid = document.getElementById('gameGrid');
+            var list = document.getElementById('fullList');
             grid.innerHTML = '';
             list.innerHTML = '';
 
@@ -52,45 +51,36 @@
                 return;
             }
 
-            games.forEach(g => {
-                const name  = g.name  || "Untitled Module";
-                const url   = g.url   || "#";
-                const img   = g.image || "https://via.placeholder.com/200x120?text=No+Image";
-                const tags  = g.tags  || "general";
+            games.forEach(function(g) {
+                var name = g.name  || "Untitled Module";
+                var url  = g.url   || "#";
+                var img  = g.image || "https://via.placeholder.com/200x120?text=No+Image";
+                var tags = g.tags  || "general";
 
-                // Sidebar
-                const li = document.createElement('li');
+                var li = document.createElement('li');
                 li.innerText = name;
-                li.onclick = () => window.open(url, '_blank');
+                li.onclick = function() { window.open(url, '_blank'); };
                 list.appendChild(li);
 
-                // Grid card
-                const card = document.createElement('div');
+                var card = document.createElement('div');
                 card.className = 'card';
-                card.onclick = () => window.open(url, '_blank');
-                card.innerHTML = `
-                    <img src="${img}" alt="${name}" onerror="this.src='https://via.placeholder.com/200x120?text=Error'">
-                    <div class="card-info">
-                        <h3>${name}</h3>
-                        <p>${tags}</p>
-                    </div>`;
+                card.onclick = function() { window.open(url, '_blank'); };
+                card.innerHTML =
+                    '<img src="' + img + '" alt="' + name + '" onerror="this.src=\'https://via.placeholder.com/200x120?text=Error\'">' +
+                    '<div class="card-info"><h3>' + name + '</h3><p>' + tags + '</p></div>';
                 grid.appendChild(card);
             });
         }
 
-        // Real-time search
-        document.getElementById('search').oninput = (e) => {
-            const term = e.target.value.toLowerCase().trim();
-
-            db.collection("games").get().then(snap => {
-                const all = snap.docs.map(d => d.data());
-                const filtered = term
-                    ? all.filter(g => {
-                        const nameMatch = g.name  && g.name.toLowerCase().includes(term);
-                        const tagMatch  = g.tags  && g.tags.toLowerCase().includes(term);
-                        return nameMatch || tagMatch;
-                    })
-                    : all;
+        document.getElementById('search').oninput = function(e) {
+            var term = e.target.value.toLowerCase().trim();
+            db.collection("games").get().then(function(snap) {
+                var all = snap.docs.map(function(d) { return d.data(); });
+                var filtered = term ? all.filter(function(g) {
+                    var nameMatch = g.name && g.name.toLowerCase().includes(term);
+                    var tagMatch  = g.tags && g.tags.toLowerCase().includes(term);
+                    return nameMatch || tagMatch;
+                }) : all;
                 render(filtered);
             });
         };
