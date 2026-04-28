@@ -3,35 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Module Management</title>
+    <title>Admin Panel</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body class="admin-body">
-
     <div id="login-section">
         <h2>Admin Login</h2>
         <input type="email" id="email" placeholder="Email">
         <input type="password" id="password" placeholder="Password">
         <button id="loginBtn">Login</button>
-        <p id="err" style="color:red; font-size:13px; margin-top:8px;"></p>
+        <p id="err" style="color:red;font-size:13px;margin-top:8px;"></p>
     </div>
 
-    <div id="admin-panel" style="display:none;">
-        <h2>Upload New Module</h2>
-        <input type="text" id="gName" placeholder="Game Name">
-        <input type="text" id="gUrl" placeholder="Game URL">
-        <input type="text" id="gImg" placeholder="Thumbnail Image URL">
-        <input type="text" id="gTags" placeholder="Tags (e.g. Action, IO)">
-        <button id="uploadBtn">Add to Website</button>
-        <button id="logoutBtn" style="background:#333; margin-top:8px;">Logout</button>
-        <p id="status" style="color:#00d2ff; font-size:13px; margin-top:8px;"></p>
+    <div id="admin-panel" style="display:none; max-width:500px; margin:60px auto; background:#141417; padding:40px; border-radius:16px; border:1px solid #222;">
+        <h2 style="margin-bottom:24px; color:#00d2ff;">Upload New Game</h2>
+        <input type="text" id="gName" placeholder="Game Title">
+        <input type="text" id="gUrl"  placeholder="Game URL (iframe src)">
+        <input type="text" id="gImg"  placeholder="Thumbnail Image URL">
+        <input type="text" id="gTags" placeholder="Tags (e.g. action, io, 2-player)">
+        <textarea id="gDesc" placeholder="Short description..." style="width:100%;padding:10px;margin:8px 0;background:#000;border:1px solid #333;color:white;border-radius:6px;min-height:80px;resize:vertical;font-family:inherit;"></textarea>
+        <button id="uploadBtn">Add Game</button>
+        <button id="logoutBtn" style="background:#333;margin-top:8px;">Logout</button>
+        <p id="status" style="color:#00d2ff;font-size:13px;margin-top:10px;"></p>
+
+        <hr style="border-color:#222; margin:32px 0;">
+        <h3 style="margin-bottom:16px; color:#e0e0e0;">Current Games</h3>
+        <div id="gameList"></div>
     </div>
 
     <script>
-        const firebaseConfig = {
+        var ADMIN_EMAIL = 'brunslane8@gmail.com';
+
+        var firebaseConfig = {
             apiKey: "AIzaSyCjcuQ7xq6Sk-uo9h8tCY38UvZoKPTU2Sc",
             authDomain: "best-unblocked-games-7e4e3.firebaseapp.com",
             projectId: "best-unblocked-games-7e4e3",
@@ -39,60 +45,86 @@
             messagingSenderId: "369397020855",
             appId: "1:369397020855:web:d47ec6c278f2594ce9b532"
         };
-
         firebase.initializeApp(firebaseConfig);
-        const auth = firebase.auth();
-        const db = firebase.firestore();
+        var auth = firebase.auth();
+        var db   = firebase.firestore();
 
-        auth.onAuthStateChanged(user => {
-            if (user) {
+        auth.onAuthStateChanged(function(user) {
+            if (user && user.email === ADMIN_EMAIL) {
                 document.getElementById('login-section').style.display = 'none';
-                document.getElementById('admin-panel').style.display = 'block';
+                document.getElementById('admin-panel').style.display   = 'block';
+                loadGameList();
+            } else if (user && user.email !== ADMIN_EMAIL) {
+                document.getElementById('err').textContent = 'Access denied. Not an admin account.';
+                auth.signOut();
             } else {
                 document.getElementById('login-section').style.display = 'block';
-                document.getElementById('admin-panel').style.display = 'none';
+                document.getElementById('admin-panel').style.display   = 'none';
             }
         });
 
         document.getElementById('loginBtn').onclick = function() {
-            var email = document.getElementById('email').value;
-            var pass = document.getElementById('password').value;
-            document.getElementById('err').textContent = 'Trying...';
+            var email = document.getElementById('email').value.trim();
+            var pass  = document.getElementById('password').value;
+            document.getElementById('err').textContent = 'Logging in...';
             auth.signInWithEmailAndPassword(email, pass)
-                .then(function() {
-                    document.getElementById('err').textContent = 'Success!';
-                })
-                .catch(function(error) {
-                    document.getElementById('err').textContent = error.message;
+                .catch(function(err) {
+                    document.getElementById('err').textContent = err.message;
                 });
         };
 
         document.getElementById('uploadBtn').onclick = function() {
-            var name = document.getElementById('gName').value;
-            var url = document.getElementById('gUrl').value;
-            var image = document.getElementById('gImg').value;
-            var tags = document.getElementById('gTags').value.toLowerCase();
-            db.collection("games").add({
-                name: name,
-                url: url,
-                image: image,
-                tags: tags,
+            var name = document.getElementById('gName').value.trim();
+            var url  = document.getElementById('gUrl').value.trim();
+            var img  = document.getElementById('gImg').value.trim();
+            var tags = document.getElementById('gTags').value.trim().toLowerCase();
+            var desc = document.getElementById('gDesc').value.trim();
+            var st   = document.getElementById('status');
+
+            if (!name || !url) {
+                st.style.color = 'red';
+                st.textContent = 'Name and URL are required.';
+                return;
+            }
+            db.collection('games').add({
+                name: name, url: url, image: img,
+                tags: tags, description: desc,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             }).then(function() {
-                document.getElementById('status').textContent = 'Added!';
-                document.getElementById('gName').value = '';
-                document.getElementById('gUrl').value = '';
-                document.getElementById('gImg').value = '';
-                document.getElementById('gTags').value = '';
+                st.style.color = '#00d2ff';
+                st.textContent = 'Game added!';
+                ['gName','gUrl','gImg','gTags','gDesc'].forEach(function(id) {
+                    document.getElementById(id).value = '';
+                });
+                loadGameList();
             }).catch(function(e) {
-                document.getElementById('status').style.color = 'red';
-                document.getElementById('status').textContent = e.message;
+                st.style.color = 'red';
+                st.textContent = e.message;
             });
         };
 
-        document.getElementById('logoutBtn').onclick = function() {
-            auth.signOut();
-        };
+        function loadGameList() {
+            db.collection('games').orderBy('timestamp','desc').get().then(function(snap) {
+                var list = document.getElementById('gameList');
+                list.innerHTML = '';
+                snap.docs.forEach(function(doc) {
+                    var g = doc.data();
+                    var row = document.createElement('div');
+                    row.style = 'display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid #222;font-size:14px;';
+                    row.innerHTML = '<span>' + (g.name || 'Untitled') + '</span>' +
+                        '<button onclick="deleteGame(\'' + doc.id + '\')" style="background:#ff3333;color:white;border:none;padding:4px 12px;border-radius:4px;cursor:pointer;font-size:12px;">Delete</button>';
+                    list.appendChild(row);
+                });
+            });
+        }
+
+        function deleteGame(id) {
+            if (confirm('Delete this game?')) {
+                db.collection('games').doc(id).delete().then(loadGameList);
+            }
+        }
+
+        document.getElementById('logoutBtn').onclick = function() { auth.signOut(); };
     </script>
 </body>
 </html>
