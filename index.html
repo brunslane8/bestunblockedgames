@@ -5,28 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Academic Archive</title>
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
-
     <aside class="sidebar">
         <div class="logo">PORTAL</div>
         <ul id="fullList"></ul>
     </aside>
-
     <main class="content">
         <div class="top-nav">
             <input type="text" id="search" placeholder="Search modules by name or tag...">
         </div>
-        
-        <div class="grid" id="gameGrid">
-            </div>
+        <div class="grid" id="gameGrid"></div>
     </main>
 
     <script>
-        // Your specific Firebase configuration
         const firebaseConfig = {
             apiKey: "AIzaSyCjcuQ7xq6Sk-uo9h8tCY38UvZoKPTU2Sc",
             authDomain: "best-unblocked-games-7e4e3.firebaseapp.com",
@@ -36,59 +30,66 @@
             appId: "1:369397020855:web:d47ec6c278f2594ce9b532"
         };
 
-        // Initialize Firebase
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // 1. Live Listener: Updates the UI every time the database changes
+        // Live listener — re-renders whenever Firestore changes
         db.collection("games").onSnapshot(snap => {
             const data = snap.docs.map(d => d.data());
             render(data);
         });
 
-        // 2. Render Function: Builds the Sidebar and Grid
         function render(games) {
             const grid = document.getElementById('gameGrid');
             const list = document.getElementById('fullList');
-            
-            grid.innerHTML = ''; 
-            list.innerHTML = '';
-            
-            games.forEach(g => {
-                // Safeguard against "undefined" - ensures lowercase matching with your Firestore
-                const name = g.name || "Untitled Module";
-                const url = g.url || "#";
-                const img = g.image || "https://via.placeholder.com/200x120?text=No+Image";
-                const tags = g.tags || "General";
 
-                // Add to Sidebar List
+            grid.innerHTML = '';
+            list.innerHTML = '';
+
+            if (games.length === 0) {
+                grid.innerHTML = '<p style="color:#555; grid-column:1/-1;">No modules found.</p>';
+                return;
+            }
+
+            games.forEach(g => {
+                const name  = g.name  || "Untitled Module";
+                const url   = g.url   || "#";
+                const img   = g.image || "https://via.placeholder.com/200x120?text=No+Image";
+                const tags  = g.tags  || "general";
+
+                // Sidebar
                 const li = document.createElement('li');
                 li.innerText = name;
                 li.onclick = () => window.open(url, '_blank');
                 list.appendChild(li);
 
-                // Add to Grid Display
-                grid.innerHTML += `
-                    <div class="card" onclick="window.open('${url}', '_blank')">
-                        <img src="${img}" alt="${name}" onerror="this.src='https://via.placeholder.com/200x120?text=Error+Loading'">
-                        <div class="card-info">
-                            <h3>${name}</h3>
-                            <p>${tags}</p>
-                        </div>
+                // Grid card
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.onclick = () => window.open(url, '_blank');
+                card.innerHTML = `
+                    <img src="${img}" alt="${name}" onerror="this.src='https://via.placeholder.com/200x120?text=Error'">
+                    <div class="card-info">
+                        <h3>${name}</h3>
+                        <p>${tags}</p>
                     </div>`;
+                grid.appendChild(card);
             });
         }
 
-        // 3. Search Logic: Filters the grid and list in real-time
+        // Real-time search
         document.getElementById('search').oninput = (e) => {
-            const term = e.target.value.toLowerCase();
-            
+            const term = e.target.value.toLowerCase().trim();
+
             db.collection("games").get().then(snap => {
-                const filtered = snap.docs.map(d => d.data()).filter(g => {
-                    const nameMatch = g.name && g.name.toLowerCase().includes(term);
-                    const tagMatch = g.tags && g.tags.toLowerCase().includes(term);
-                    return nameMatch || tagMatch;
-                });
+                const all = snap.docs.map(d => d.data());
+                const filtered = term
+                    ? all.filter(g => {
+                        const nameMatch = g.name  && g.name.toLowerCase().includes(term);
+                        const tagMatch  = g.tags  && g.tags.toLowerCase().includes(term);
+                        return nameMatch || tagMatch;
+                    })
+                    : all;
                 render(filtered);
             });
         };
