@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Academic Archive</title>
+    <title>Portal</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 </head>
 <body>
@@ -16,14 +17,47 @@
     <main class="content">
         <div class="top-nav">
             <input type="text" id="search" placeholder="Search modules by name or tag...">
+            <div id="auth-area">
+                <button id="authBtn" onclick="openAuthModal()">Login / Register</button>
+                <span id="userDisplay" style="display:none;">
+                    <span id="username-label"></span>
+                    <button onclick="logout()" style="margin-left:10px; background:#333;">Logout</button>
+                    <button id="adminNavBtn" onclick="window.location='admin.html'" style="display:none; margin-left:6px; background:#00d2ff; color:#000;">Admin</button>
+                </span>
+            </div>
         </div>
         <div class="grid" id="gameGrid"></div>
     </main>
 
-    <a href="admin.html" style="position:fixed; bottom:20px; right:20px; background:#00d2ff; color:#000; padding:8px 16px; border-radius:8px; font-weight:bold; text-decoration:none; font-size:13px;">Admin</a>
+    <!-- Auth Modal -->
+    <div id="authModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:100; justify-content:center; align-items:center;">
+        <div style="background:#141417; padding:40px; border-radius:16px; width:340px; border:1px solid #333;">
+            <div style="display:flex; gap:10px; margin-bottom:24px;">
+                <button id="tabLogin" onclick="switchTab('login')" style="flex:1; background:#00d2ff; color:#000;">Login</button>
+                <button id="tabRegister" onclick="switchTab('register')" style="flex:1; background:#222;">Register</button>
+            </div>
+            <div id="loginForm">
+                <input type="email" id="loginEmail" placeholder="Email" style="width:100%;padding:10px;margin:6px 0;background:#000;border:1px solid #333;color:white;border-radius:6px;box-sizing:border-box;">
+                <input type="password" id="loginPass" placeholder="Password" style="width:100%;padding:10px;margin:6px 0;background:#000;border:1px solid #333;color:white;border-radius:6px;box-sizing:border-box;">
+                <button onclick="doLogin()" style="width:100%;padding:12px;margin-top:10px;background:#00d2ff;color:#000;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">Login</button>
+            </div>
+            <div id="registerForm" style="display:none;">
+                <input type="text" id="regUsername" placeholder="Username" style="width:100%;padding:10px;margin:6px 0;background:#000;border:1px solid #333;color:white;border-radius:6px;box-sizing:border-box;">
+                <input type="email" id="regEmail" placeholder="Email" style="width:100%;padding:10px;margin:6px 0;background:#000;border:1px solid #333;color:white;border-radius:6px;box-sizing:border-box;">
+                <input type="password" id="regPass" placeholder="Password" style="width:100%;padding:10px;margin:6px 0;background:#000;border:1px solid #333;color:white;border-radius:6px;box-sizing:border-box;">
+                <button onclick="doRegister()" style="width:100%;padding:12px;margin-top:10px;background:#00d2ff;color:#000;border:none;border-radius:6px;font-weight:bold;cursor:pointer;">Create Account</button>
+            </div>
+            <p id="authError" style="color:#ff4d4d;font-size:13px;margin-top:10px;text-align:center;"></p>
+            <button onclick="closeAuthModal()" style="width:100%;padding:10px;margin-top:12px;background:#1a1a1a;color:#888;border:1px solid #333;border-radius:6px;cursor:pointer;">Cancel</button>
+        </div>
+    </div>
 
     <script>
-        const firebaseConfig = {
+        // ---- CHANGE THIS TO YOUR EMAIL ----
+        var ADMIN_EMAIL = 'brunslane8@gmail.com';
+        // -----------------------------------
+
+        var firebaseConfig = {
             apiKey: "AIzaSyCjcuQ7xq6Sk-uo9h8tCY38UvZoKPTU2Sc",
             authDomain: "best-unblocked-games-7e4e3.firebaseapp.com",
             projectId: "best-unblocked-games-7e4e3",
@@ -31,11 +65,34 @@
             messagingSenderId: "369397020855",
             appId: "1:369397020855:web:d47ec6c278f2594ce9b532"
         };
-
         firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
+        var auth = firebase.auth();
+        var db = firebase.firestore();
 
-        db.collection("games").onSnapshot(function(snap) {
+        // Auth state
+        auth.onAuthStateChanged(function(user) {
+            if (user) {
+                document.getElementById('authBtn').style.display = 'none';
+                document.getElementById('userDisplay').style.display = 'inline-flex';
+                document.getElementById('userDisplay').style.alignItems = 'center';
+                // Get username from firestore
+                db.collection('users').doc(user.uid).get().then(function(doc) {
+                    var name = doc.exists ? doc.data().username : user.email;
+                    document.getElementById('username-label').textContent = name;
+                });
+                // Show admin button if admin
+                if (user.email === ADMIN_EMAIL) {
+                    document.getElementById('adminNavBtn').style.display = 'inline-block';
+                }
+            } else {
+                document.getElementById('authBtn').style.display = 'inline-block';
+                document.getElementById('userDisplay').style.display = 'none';
+                document.getElementById('adminNavBtn').style.display = 'none';
+            }
+        });
+
+        // Load games
+        db.collection('games').onSnapshot(function(snap) {
             var data = snap.docs.map(function(d) { return d.data(); });
             render(data);
         });
@@ -45,26 +102,25 @@
             var list = document.getElementById('fullList');
             grid.innerHTML = '';
             list.innerHTML = '';
-
             if (games.length === 0) {
-                grid.innerHTML = '<p style="color:#555; grid-column:1/-1;">No modules found.</p>';
+                grid.innerHTML = '<p style="color:#555;grid-column:1/-1;">No modules found.</p>';
                 return;
             }
-
             games.forEach(function(g) {
-                var name = g.name  || "Untitled Module";
-                var url  = g.url   || "#";
-                var img  = g.image || "https://via.placeholder.com/200x120?text=No+Image";
-                var tags = g.tags  || "general";
+                var name  = g.name  || 'Untitled';
+                var url   = g.url   || '#';
+                var img   = g.image || 'https://via.placeholder.com/200x120?text=No+Image';
+                var tags  = g.tags  || 'general';
+                var desc  = g.description || '';
 
                 var li = document.createElement('li');
                 li.innerText = name;
-                li.onclick = function() { window.open(url, '_blank'); };
+                li.onclick = function() { openGame(url, name); };
                 list.appendChild(li);
 
                 var card = document.createElement('div');
                 card.className = 'card';
-                card.onclick = function() { window.open(url, '_blank'); };
+                card.onclick = function() { openGame(url, name); };
                 card.innerHTML =
                     '<img src="' + img + '" alt="' + name + '" onerror="this.src=\'https://via.placeholder.com/200x120?text=Error\'">' +
                     '<div class="card-info"><h3>' + name + '</h3><p>' + tags + '</p></div>';
@@ -72,18 +128,75 @@
             });
         }
 
+        function openGame(url, name) {
+            var params = new URLSearchParams({ url: url, name: name });
+            window.location.href = 'game.html?' + params.toString();
+        }
+
+        // Search
         document.getElementById('search').oninput = function(e) {
             var term = e.target.value.toLowerCase().trim();
-            db.collection("games").get().then(function(snap) {
+            db.collection('games').get().then(function(snap) {
                 var all = snap.docs.map(function(d) { return d.data(); });
                 var filtered = term ? all.filter(function(g) {
-                    var nameMatch = g.name && g.name.toLowerCase().includes(term);
-                    var tagMatch  = g.tags && g.tags.toLowerCase().includes(term);
-                    return nameMatch || tagMatch;
+                    return (g.name && g.name.toLowerCase().includes(term)) ||
+                           (g.tags && g.tags.toLowerCase().includes(term));
                 }) : all;
                 render(filtered);
             });
         };
+
+        // Auth modal
+        function openAuthModal() {
+            document.getElementById('authModal').style.display = 'flex';
+        }
+        function closeAuthModal() {
+            document.getElementById('authModal').style.display = 'none';
+            document.getElementById('authError').textContent = '';
+        }
+        function switchTab(tab) {
+            document.getElementById('loginForm').style.display    = tab === 'login'    ? 'block' : 'none';
+            document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+            document.getElementById('tabLogin').style.background    = tab === 'login'    ? '#00d2ff' : '#222';
+            document.getElementById('tabLogin').style.color         = tab === 'login'    ? '#000'    : '#fff';
+            document.getElementById('tabRegister').style.background = tab === 'register' ? '#00d2ff' : '#222';
+            document.getElementById('tabRegister').style.color      = tab === 'register' ? '#000'    : '#fff';
+            document.getElementById('authError').textContent = '';
+        }
+        function doLogin() {
+            var email = document.getElementById('loginEmail').value;
+            var pass  = document.getElementById('loginPass').value;
+            auth.signInWithEmailAndPassword(email, pass)
+                .then(function() { closeAuthModal(); })
+                .catch(function(err) {
+                    document.getElementById('authError').textContent = err.message;
+                });
+        }
+        function doRegister() {
+            var username = document.getElementById('regUsername').value.trim();
+            var email    = document.getElementById('regEmail').value;
+            var pass     = document.getElementById('regPass').value;
+            if (!username) {
+                document.getElementById('authError').textContent = 'Username is required.';
+                return;
+            }
+            auth.createUserWithEmailAndPassword(email, pass)
+                .then(function(cred) {
+                    return db.collection('users').doc(cred.user.uid).set({
+                        username: username,
+                        email: email,
+                        progress: {},
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                })
+                .then(function() { closeAuthModal(); })
+                .catch(function(err) {
+                    document.getElementById('authError').textContent = err.message;
+                });
+        }
+        function logout() {
+            auth.signOut();
+        }
     </script>
 </body>
 </html>
