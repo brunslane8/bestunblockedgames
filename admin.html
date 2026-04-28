@@ -13,21 +13,21 @@
 
     <div id="login-section">
         <h2>Admin Login</h2>
-        <input type="email"    id="email"    placeholder="Email">
+        <input type="email" id="email" placeholder="Email">
         <input type="password" id="password" placeholder="Password">
         <button id="loginBtn">Login</button>
-        <p id="login-error" style="color:#ff4d4d; font-size:13px; margin-top:10px;"></p>
+        <p id="err" style="color:red; font-size:13px; margin-top:8px;"></p>
     </div>
 
     <div id="admin-panel" style="display:none;">
         <h2>Upload New Module</h2>
         <input type="text" id="gName" placeholder="Game Name">
-        <input type="text" id="gUrl"  placeholder="Game URL (Monetag Link)">
-        <input type="text" id="gImg"  placeholder="Thumbnail Image URL">
-        <input type="text" id="gTags" placeholder="Tags (e.g. Action, IO, 2-Player)">
+        <input type="text" id="gUrl" placeholder="Game URL">
+        <input type="text" id="gImg" placeholder="Thumbnail Image URL">
+        <input type="text" id="gTags" placeholder="Tags (e.g. Action, IO)">
         <button id="uploadBtn">Add to Website</button>
         <button id="logoutBtn" style="background:#333; margin-top:8px;">Logout</button>
-        <p id="upload-status" style="color:#00d2ff; font-size:13px; margin-top:10px;"></p>
+        <p id="status" style="color:#00d2ff; font-size:13px; margin-top:8px;"></p>
     </div>
 
     <script>
@@ -42,70 +42,55 @@
 
         firebase.initializeApp(firebaseConfig);
         const auth = firebase.auth();
-        const db   = firebase.firestore();
+        const db = firebase.firestore();
 
-        // Watch auth state — show/hide panels accordingly
         auth.onAuthStateChanged(user => {
             if (user) {
                 document.getElementById('login-section').style.display = 'none';
-                document.getElementById('admin-panel').style.display   = 'block';
+                document.getElementById('admin-panel').style.display = 'block';
             } else {
                 document.getElementById('login-section').style.display = 'block';
-                document.getElementById('admin-panel').style.display   = 'none';
+                document.getElementById('admin-panel').style.display = 'none';
             }
         });
 
-        // Login
-        document.getElementById('loginBtn').onclick = () => {
-            const email    = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            const errEl    = document.getElementById('login-error');
-            errEl.textContent = '';
-
-            if (!email || !password) {
-                errEl.textContent = 'Please fill in both fields.';
-                return;
-            }
-
-            auth.signInWithEmailAndPassword(email, password)
-                .catch(err => {
-                    errEl.textContent = err.message;
+        document.getElementById('loginBtn').onclick = function() {
+            var email = document.getElementById('email').value;
+            var pass = document.getElementById('password').value;
+            document.getElementById('err').textContent = 'Trying...';
+            auth.signInWithEmailAndPassword(email, pass)
+                .then(function() {
+                    document.getElementById('err').textContent = 'Success!';
+                })
+                .catch(function(error) {
+                    document.getElementById('err').textContent = error.message;
                 });
         };
 
-        // Upload game
-        document.getElementById('uploadBtn').onclick = () => {
-            const name  = document.getElementById('gName').value.trim();
-            const url   = document.getElementById('gUrl').value.trim();
-            const image = document.getElementById('gImg').value.trim();
-            const tags  = document.getElementById('gTags').value.trim().toLowerCase();
-            const statusEl = document.getElementById('upload-status');
-
-            if (!name || !url) {
-                statusEl.style.color = '#ff4d4d';
-                statusEl.textContent = 'Name and URL are required.';
-                return;
-            }
-
+        document.getElementById('uploadBtn').onclick = function() {
+            var name = document.getElementById('gName').value;
+            var url = document.getElementById('gUrl').value;
+            var image = document.getElementById('gImg').value;
+            var tags = document.getElementById('gTags').value.toLowerCase();
             db.collection("games").add({
-                name,
-                url,
-                image,
-                tags,
+                name: name,
+                url: url,
+                image: image,
+                tags: tags,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            }).then(() => {
-                statusEl.style.color = '#00d2ff';
-                statusEl.textContent = 'Module added successfully!';
-                // Clear fields
-                ['gName','gUrl','gImg','gTags'].forEach(id => document.getElementById(id).value = '');
-            }).catch(err => {
-                statusEl.style.color = '#ff4d4d';
-                statusEl.textContent = 'Error: ' + err.message;
+            }).then(function() {
+                document.getElementById('status').textContent = 'Added!';
+                document.getElementById('gName').value = '';
+                document.getElementById('gUrl').value = '';
+                document.getElementById('gImg').value = '';
+                document.getElementById('gTags').value = '';
+            }).catch(function(e) {
+                document.getElementById('status').style.color = 'red';
+                document.getElementById('status').textContent = e.message;
             });
         };
 
-        // Logout
-        document.getElementById('logoutBtn').onclick = () => {
+        document.getElementById('logoutBtn').onclick = function() {
             auth.signOut();
         };
     </script>
