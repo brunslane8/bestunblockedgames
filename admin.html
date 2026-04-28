@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Module Management</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="admin-body">
+
+    <div id="login-section">
+        <h2>Admin Login</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="password" placeholder="Password">
+        <button onclick="login()">Login</button>
+    </div>
+
+    <div id="admin-panel" style="display:none;">
+        <h2>Upload New Game</h2>
+        <input type="text" id="gName" placeholder="Game Name">
+        <input type="text" id="gUrl" placeholder="Game URL (Monetag Link)">
+        <input type="text" id="gImg" placeholder="Thumbnail Image URL">
+        <input type="text" id="gTags" placeholder="Tags (e.g. Action, IO, 2-Player)">
+        <button onclick="uploadGame()">Add to Website</button>
+        <button onclick="logout()">Logout</button>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            // PASTE YOUR KEYS HERE!
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        function login() {
+            const e = document.getElementById('email').value;
+            const p = document.getElementById('password').value;
+            firebase.auth().signInWithEmailAndPassword(e, p).catch(err => alert(err.message));
+        }
+
+        firebase.auth().onAuthStateChanged(user => {
+            if(user) {
+                document.getElementById('login-section').style.display = 'none';
+                document.getElementById('admin-panel').style.display = 'block';
+            }
+        });
+
+        function uploadGame() {
+            db.collection("games").add({
+                name: document.getElementById('gName').value,
+                url: document.getElementById('gUrl').value,
+                image: document.getElementById('gImg').value,
+                tags: document.getElementById('gTags').value.toLowerCase(),
+                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => alert("Game Added!"));
+        }
+
+        function logout() { firebase.auth().signOut(); location.reload(); }
+    </script>
+</body>
+</html>
