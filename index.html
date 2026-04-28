@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Academic Archive</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.0.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+    <div class="sidebar">
+        <div class="logo">PORTAL</div>
+        <ul id="fullList"></ul>
+    </div>
+    <div class="content">
+        <input type="text" id="search" placeholder="Search modules...">
+        <div class="grid" id="gameGrid"></div>
+    </div>
+
+    <script>
+        // PASTE YOUR FIREBASE CONFIG HERE
+        const firebaseConfig = {
+            apiKey: "YOUR_KEY",
+            authDomain: "YOUR_PROJECT.firebaseapp.com",
+            projectId: "YOUR_PROJECT",
+            storageBucket: "YOUR_PROJECT.appspot.com",
+            messagingSenderId: "ID",
+            appId: "APP_ID"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        db.collection("games").onSnapshot(snap => {
+            const data = snap.docs.map(d => d.data());
+            render(data);
+        });
+
+        function render(games) {
+            const grid = document.getElementById('gameGrid');
+            const list = document.getElementById('fullList');
+            grid.innerHTML = ''; list.innerHTML = '';
+            games.forEach(g => {
+                list.innerHTML += `<li onclick="window.open('${g.url}')">${g.name}</li>`;
+                grid.innerHTML += `
+                    <div class="card" onclick="window.open('${g.url}')">
+                        <img src="${g.image}">
+                        <h3>${g.name}</h3>
+                        <p>${g.tags}</p>
+                    </div>`;
+            });
+        }
+    </script>
+</body>
+</html>
